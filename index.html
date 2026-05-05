@@ -188,7 +188,14 @@ select#date-sel:focus{outline:none;border-color:var(--blue);}
     <div class="htitle">ระบบเช็คชื่อชุมนุม</div>
     <div class="hsub" id="hdate">—</div>
   </div>
+  <div style="text-align:right;flex-shrink:0;">
+    <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:var(--blue);letter-spacing:1px;" id="live-clock">--:--:--</div>
+    <div style="font-size:10px;color:var(--t3);margin-top:1px;display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+      <span id="online-dot" style="width:6px;height:6px;border-radius:50%;background:var(--t3);display:inline-block;"></span>
+      <span id="online-txt">กำลังเชื่อมต่อ</span>
+    </div>
   <div style="font-size:12px;color:var(--t3);font-family:var(--mono);flex-shrink:0;" id="hcount">0 คน</div>
+  </div>
 </header>
 
 <div id="https-warn">
@@ -320,6 +327,8 @@ const CONFIG = {
   THRESHOLD  : 0.55,
   MAX_MATCH  : 5,
   CAM_FACING : "environment"
+  AUTO_REFRESH : 300,    // รีเฟรชข้อมูลทุกกี่วินาที (0 = ปิด)
+  REFRESH_WARN : 5      // วินาทีก่อนรีเฟรชให้แสดงแจ้ง
 };
 
 // ═══════════════════════════════════════════════
@@ -336,6 +345,35 @@ const S = {
   ocrRaw   : "",
   tab      : "list"
 };
+  // ── Idle detection state ──
+const IDLE = {
+  timeout   : 15,      // วินาทีที่ถือว่า idle (ไม่มีการใช้งาน)
+  lastActive: Date.now(),
+  isIdle    : false,
+  timer     : null
+};
+
+function resetIdle(){
+  IDLE.lastActive = Date.now();
+  if(IDLE.isIdle){
+    IDLE.isIdle = false;
+    // ผู้ใช้กลับมาแล้ว → อัปเดต UI
+    const dot = $("online-dot");
+    const txt = $("online-txt");
+    dot.style.animation = "";
+    if(_lastSync) txt.textContent = "ซิงค์ "+_lastSync;
+  }
+}
+
+function checkIdle(){
+  const elapsed = (Date.now() - IDLE.lastActive) / 1000;
+  IDLE.isIdle = elapsed >= IDLE.timeout;
+  return IDLE.isIdle;
+}
+
+// จับทุก event ที่แสดงว่าผู้ใช้ active
+["mousemove","mousedown","scroll","touchstart","touchmove","keydown","click"]
+  .forEach(ev => window.addEventListener(ev, resetIdle, {passive:true}));
 
 // ═══════════════════════════════════════════════
 // HELPERS
@@ -779,60 +817,224 @@ async function scanMark(status){
 function setScanStatus(msg,type){ setStatus(msg,type,true); }
 
 // ═══════════════════════════════════════════════
-// INIT — runs once on page load
+// LIVE CLOCK + ONLINE STATUS
+// ═══════════════════════════════════════════════
+function startClock(){
+  function tick(){
+    const now = new Date();
+    const hh  = String(now.getHours()).padStart(2,"0");
+    const mm  = String(now.getMinutes()).padStart(2,"0");
+    const ss  = String(now.getSeconds()).padStart(2,"0");
+    $("live-clock").textContent = hh+":"+mm+":"+ss;
+
+    // วันที่ไทย พ.ศ.
+    const MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.",
+                    "ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+    const days   = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัส","ศุกร์","เสาร์"];
+    const d = now.getDate();
+    const m = MONTHS[now.getMonth()];
+    const y = now.getFullYear() + 543;
+    const w = days[now.getDay()];
+    $("hdate").textContent = "วัน"+w+" "+d+" "+m+" "+y;
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ═══════════════════════════════════════════════
+// ONLINE STATUS
+// ═══════════════════════════════════════════════
+let _lastSync = null;
+function setOnline(isOnline){
+  const dot = $("online-dot");
+  const txt = $("online-txt");
+  if(isOnline){
+    dot.style.background = "var(--green)";
+    dot.style.boxShadow  = "0 0 4px var(--green)";
+    const t = new Date();
+    _lastSync = String(t.getHours()).padStart(2,"0")+":"+
+                String(t.getMinutes()).padStart(2,"0")+":"+
+                String(t.getSeconds()).padStart(2,"0");
+    txt.textContent = "ซิงค์ "+_lastSync;
+  } else {
+    dot.style.background = "var(--red)";
+    dot.style.boxShadow  = "none";
+    txt.textContent = "ออฟไลน์";
+  }
+}
+
+// ═══════════════════════════════════════════════
+// AUTO-REFRESH
+// ═══════════════════════════════════════════════
+let _refreshTimer = null;
+let _refreshCountdown = 0;
+
+function startAutoRefresh(){
+  if(!CONFIG.AUTO_REFRESH) return;
+  clearInterval(_refreshTimer);
+  _refreshCountdown = CONFIG.AUTO_REFRESH;
+
+  _refreshTimer = setInterval(async ()=>{
+
+    // ── ถ้าผู้ใช้ active อยู่ → รีเซ็ตนับถอยหลัง ไม่รีเฟรส ──
+    if(!checkIdle()){
+      _refreshCountdown = CONFIG.AUTO_REFRESH;
+      updateRefreshUI("active");
+      return;
+    }
+
+    // ── ผู้ใช้ idle → นับถอยหลัง ──
+    _refreshCountdown--;
+    updateRefreshUI("idle");
+
+    if(_refreshCountdown <= 0){
+      _refreshCountdown = CONFIG.AUTO_REFRESH;
+      if(S.selCol && S.tab === "list"){
+        await silentRefresh();
+      }
+    }
+
+  }, 1000);
+}
+
+function updateRefreshUI(mode){
+  const dot = $("online-dot");
+  const txt = $("online-txt");
+
+  if(mode === "active"){
+    dot.style.background = "var(--yel)";
+    dot.style.boxShadow  = "none";
+    dot.style.animation  = "";
+    txt.textContent = "กำลังใช้งาน";
+  } else {
+    dot.style.background = "var(--green)";
+    dot.style.boxShadow  = "0 0 5px var(--green)";
+    if(_refreshCountdown <= CONFIG.REFRESH_WARN){
+      dot.style.animation = "pulse .6s infinite";
+      txt.textContent = "รีเฟรชใน "+_refreshCountdown+"s";
+    } else {
+      dot.style.animation = "";
+      if(_lastSync) txt.textContent = "ซิงค์ "+_lastSync;
+    }
+  }
+}
+
+async function silentRefresh(){
+  try{
+    const data = await apiGet("getStudents", {col: S.selCol.col});
+    data.forEach(d=>{
+      const st = S.students.find(s=>s.row===d.row);
+      if(st){
+        st.status      = d.status;
+        st.absentCount = d.absentCount;
+      }
+    });
+    renderStudents($("search-input").value);
+    setOnline(true);
+  }catch(e){
+    setOnline(false);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// INIT — อัปเดตให้โหลดวันนี้อัตโนมัติ
 // ═══════════════════════════════════════════════
 async function init(){
-  // Detect file:// warning
   if(location.protocol==="file:") $("https-warn").style.display="block";
 
-  // Show today's date in header
-  const now=new Date();
-  $("hdate").textContent=now.toLocaleDateString("th-TH",{year:"numeric",month:"long",day:"numeric"});
+  // เริ่มนาฬิกา
+  startClock();
 
   if(CONFIG.SCRIPT_URL.includes("YOUR_SCRIPT_ID")){
-    setStatus("⚠️ ยังไม่ได้ตั้งค่า SCRIPT_URL ใน index.html","warn");
-    setScanStatus("ตั้งค่า CONFIG ก่อน","warn");
+    setStatus("⚠️ ยังไม่ได้ตั้งค่า SCRIPT_URL","warn");
     return;
   }
 
   setStatus("กำลังโหลดข้อมูล...","busy");
+  setOnline(false);
 
   try{
-    // Load columns + students in parallel
-    const [cols, students] = await Promise.all([
+    // โหลดทุกอย่างพร้อมกัน รวม getTodayColumn
+    const [cols, students, todayCol] = await Promise.all([
       apiGet("getColumns"),
-      apiGet("getStudents")   // no col = no status yet
+      apiGet("getStudents"),
+      apiGet("getTodayColumn")
     ]);
 
     S.columns  = cols;
     S.students = students;
     $("hcount").textContent = students.length+" คน";
 
-    // Populate date dropdown
-    const sel=$("date-sel");
-    if(!cols.length){
-      sel.innerHTML='<option value="">ไม่พบวันที่ในตาราง</option>';
+    // เติม dropdown วันที่
+    const sel = $("date-sel");
+    if(!cols.length && !todayCol){
+      sel.innerHTML = '<option value="">ไม่พบวันที่ในตาราง</option>';
     } else {
-      sel.innerHTML='<option value="">— เลือกวันที่เช็คชื่อ —</option>';
-      cols.forEach(c=>{ const o=document.createElement("option"); o.value=c.col; o.textContent=c.header; sel.appendChild(o); });
-      // Auto-select latest column
-      const last=cols[cols.length-1];
-      sel.value=last.col; S.selCol=last;
-      // Load status for latest date
-      const withStatus=await apiGet("getStudents",{col:last.col});
-      withStatus.forEach(d=>{ const s=S.students.find(x=>x.row===d.row); if(s) s.status=d.status; });
+      // รวม todayCol เข้า cols ถ้ายังไม่มี
+      let allCols = cols.slice();
+      if(todayCol && !allCols.find(c=>c.col===todayCol.col)){
+        allCols.push(todayCol);
+      }
+      // เรียงตาม col number
+      allCols.sort((a,b)=>a.col-b.col);
+
+      sel.innerHTML = '<option value="">— เลือกวันที่เช็คชื่อ —</option>';
+      allCols.forEach(c=>{
+        const o = document.createElement("option");
+        o.value = c.col;
+        o.textContent = c.header;
+        // ไฮไลต์วันนี้
+        if(todayCol && c.col === todayCol.col){
+          o.textContent = "📅 " + c.header + " (วันนี้)";
+          o.style.fontWeight = "700";
+        }
+        sel.appendChild(o);
+      });
+
+      // Auto-select วันนี้
+      if(todayCol){
+        sel.value  = todayCol.col;
+        S.selCol   = todayCol;
+
+        // โหลดสถานะวันนี้
+        const withStatus = await apiGet("getStudents", {col: todayCol.col});
+        withStatus.forEach(d=>{
+          const s = S.students.find(x=>x.row===d.row);
+          if(s) s.status = d.status;
+        });
+
+        // แจ้งถ้าสร้างคอลัมน์ใหม่
+        if(todayCol.created){
+          setStatus("✨ สร้างคอลัมน์วันนี้ใหม่: "+todayCol.header,"ok");
+        } else {
+          setStatus("📅 วันนี้: "+todayCol.header+" — "+students.length+" คน","ok");
+        }
+      } else {
+        // ถ้าไม่มีวันนี้ ใช้วันล่าสุด
+        const last = allCols[allCols.length-1];
+        sel.value = last.col; S.selCol = last;
+        setStatus("โหลดสำเร็จ — "+last.header,"ok");
+      }
     }
 
     renderStudents("");
-    setStatus(`โหลดสำเร็จ — ${S.selCol?S.selCol.header:"ยังไม่เลือกวัน"}`,"ok");
+    setOnline(true);
+
+    // เริ่ม auto-refresh
+    startAutoRefresh();
 
   }catch(err){
     setStatus("โหลดไม่สำเร็จ: "+err.message,"err");
+    setOnline(false);
   }
 
-  // Pre-warm OCR in background (ไม่บล็อก UI)
+  // Pre-warm OCR
   initOCR();
 }
+
+// monitor online/offline จาก browser
+window.addEventListener("online",  ()=>setOnline(true));
+window.addEventListener("offline", ()=>setOnline(false));
 
 init();
 </script>
