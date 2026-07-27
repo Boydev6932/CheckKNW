@@ -1,1105 +1,968 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>เช็คชื่อชุมนุม</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<!-- ╔═══════════════════════════════════════════════════════════╗
+     ║  LOGIN FORM — ระบบเข้าสู่ระบบ KNW ROTC               ║
+     ╚═══════════════════════════════════════════════════════════╝ -->
+<div class="login-page-wrap">
+
+    <!-- Header Authority Block -->
+    <div class="login-authority-bar">
+        <div class="auth-badge">กรมนักศึกษาวิชาทหาร</div>
+        <div class="auth-divider"></div>
+        <div class="auth-sub">โรงเรียนแก่นนครวิทยาลัย</div>
+    </div>
+
+    <!-- Login Card -->
+    <div class="login-card">
+
+        <!-- Logo + Title -->
+        <div class="login-header">
+            <div class="login-logo-wrap">
+                <img src="logo.jpg" alt="KNW Logo" class="login-logo-img">
+                <div class="login-logo-ring"></div>
+            </div>
+            <div class="login-title-block">
+                <h1 class="login-title">ระบบเช็คชื่อ <span class="login-title-accent">ROTC</span></h1>
+                <p class="login-subtitle">เข้าสู่ระบบด้วยบัญชีผู้ดูแลที่ได้รับมอบหมาย</p>
+            </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="login-sep">
+            <span class="login-sep-line"></span>
+            <span class="login-sep-icon">🔐</span>
+            <span class="login-sep-line"></span>
+        </div>
+
+        <!-- Error Alert (hidden by default, shown by JS) -->
+        <div class="login-alert login-alert--error" id="login-alert" role="alert" aria-live="polite">
+            <span class="login-alert-icon">⚠️</span>
+            <span id="login-alert-msg">ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบใหม่</span>
+        </div>
+
+        <!-- Lockout Warning (shown after 3 failed attempts) -->
+        <div class="login-alert login-alert--lockout" id="login-lockout-alert" role="alert">
+            <span class="login-alert-icon">🔒</span>
+            <span>โปรดตรวจสอบข้อมูลให้ละเอียด รหัสผ่านต้องตรงตามที่ Superadmin
+                หรือผู้ดูแลระบบสูงสุดกำหนดไว้เท่านั้น</span>
+        </div>
+
+        <!-- Form Fields -->
+        <form class="login-form" id="login-form" onsubmit="handleLogin(event)" novalidate autocomplete="off">
+
+            <!-- Full Name Field -->
+            <div class="login-field-group">
+                <label class="login-label" for="input-fullname">
+                    <span class="label-icon">👤</span> ชื่อ-นามสกุล ผู้ดูแลระบบ
+                </label>
+                <div class="login-input-wrap">
+                    <input type="text" id="input-fullname" name="fullname" class="login-input"
+                        placeholder="ตัวอย่าง: สมชาย กายเป็นบ่าว" autocomplete="name" spellcheck="false" maxlength="80"
+                        required aria-required="true">
+                    <div class="login-input-line"></div>
+                </div>
+                <span class="login-field-hint">กรอกชื่อจริง-นามสกุลจริง</span>
+            </div>
+
+            <!-- Password Field -->
+            <div class="login-field-group">
+                <label class="login-label" for="input-password">
+                    <span class="label-icon">🔑</span> รหัสผ่าน
+                </label>
+                <div class="login-input-wrap login-input-wrap--pw">
+                    <input type="password" id="input-password" name="password" class="login-input"
+                        placeholder="••••••••" autocomplete="current-password" maxlength="64" required
+                        aria-required="true">
+                    <button type="button" class="login-pw-toggle" id="pw-toggle" onclick="togglePwVisibility()"
+                        aria-label="แสดง/ซ่อนรหัสผ่าน" title="แสดง/ซ่อนรหัสผ่าน">👁</button>
+                    <div class="login-input-line"></div>
+                </div>
+                <span class="login-field-hint">รหัสผ่านจำแนกตัวอักษรพิมพ์ใหญ่-เล็ก (Case-sensitive)</span>
+            </div>
+
+            <!-- Attempt Counter (visible after 1st fail) -->
+            <div class="login-attempt-row" id="login-attempt-row">
+                <span class="attempt-label">ความพยายาม:</span>
+                <div class="attempt-dots" id="attempt-dots">
+                    <span class="attempt-dot" id="adot-0"></span>
+                    <span class="attempt-dot" id="adot-1"></span>
+                    <span class="attempt-dot" id="adot-2"></span>
+                </div>
+                <span class="attempt-remain" id="attempt-remain">เหลืออีก 3 ครั้ง</span>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="login-btn" id="login-btn"
+                onmouseenter="typeof SoundFX !== 'undefined' && SoundFX.tick && SoundFX.tick()">
+                <span class="login-btn-inner" id="login-btn-inner">
+                    <span class="login-btn-text">เข้าสู่ระบบ</span>
+                    <span class="login-btn-arrow">→</span>
+                </span>
+                <span class="login-btn-loading hidden" id="login-btn-loading">
+                    <span class="login-spinner"></span>
+                    <span>กำลังตรวจสอบ...</span>
+                </span>
+            </button>
+
+        </form>
+
+        <!-- Footer Meta -->
+        <div class="login-footer">
+            <span class="login-footer-lock">🛡️</span>
+            <span>ระบบเชื่อมต่อข้อมูล ROTC KNW</span>
+        </div>
+
+    </div><!-- /login-card -->
+
+    <!-- Bottom watermark -->
+    <div class="login-watermark">
+        KNW ROTC CHECK SYSTEM · v1.1 · พัฒนาโดยกรมนักศึกษาวิชาทหาร
+    </div>
+
+</div><!-- /login-page-wrap -->
+
+
+<!-- ════════════════════════════════════════════════════════
+     LOGIN STYLES (scoped — ไม่ขัดกับ styles.css เดิม)
+     ════════════════════════════════════════════════════════ -->
 <style>
-:root{
-  --bg:#0c111d; --s1:#111827; --s2:#1c2537; --s3:#263247;
-  --bd:#2d3a52; --bd2:#3d5070;
-  --blue:#3b82f6; --blue2:#1d4ed8;
-  --green:#16a34a; --green2:#15803d; --green-bg:rgba(22,163,74,.12);
-  --red:#dc2626;   --red2:#b91c1c;   --red-bg:rgba(220,38,38,.12);
-  --yel:#d97706;   --yel-bg:rgba(217,119,6,.1);
-  --text:#e2e8f0; --t2:#94a3b8; --t3:#64748b;
-  --font:'IBM Plex Sans Thai',sans-serif; --mono:'IBM Plex Mono',monospace;
-  --r:10px;
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100svh;overscroll-behavior:none;}
-input,button,select{font-family:var(--font);}
-
-/* ── HEADER ── */
-header{
-  background:var(--s1);border-bottom:1px solid var(--bd);
-  padding:12px 16px;display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;z-index:100;gap:10px;
-}
-.logo{width:34px;height:34px;background:linear-gradient(135deg,#3b82f6,#6366f1);border-radius:8px;display:grid;place-items:center;font-size:17px;flex-shrink:0;}
-.hinfo{flex:1;min-width:0;}
-.htitle{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.hsub{font-size:11px;color:var(--t2);font-family:var(--mono);margin-top:1px;}
-
-/* ── HTTPS WARNING ── */
-#https-warn{display:none;background:rgba(217,119,6,.15);border:1px solid var(--yel);border-radius:var(--r);padding:12px 14px;margin:12px 12px 0;font-size:13px;color:var(--yel);line-height:1.5;}
-
-/* ── TABS ── */
-.tab-bar{display:flex;background:var(--s1);border-bottom:1px solid var(--bd);position:sticky;top:57px;z-index:90;}
-.tab-btn{flex:1;padding:11px 0;font-size:14px;font-weight:600;color:var(--t3);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
-.tab-btn.active{color:var(--blue);border-color:var(--blue);}
-
-/* ── MAIN ── */
-.container{max-width:600px;margin:0 auto;padding:14px 12px;}
-
-/* ── STATUS ── */
-.sbar{display:flex;align-items:center;gap:9px;padding:9px 13px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);margin-bottom:12px;font-size:13px;transition:all .25s;}
-.sbar.ok  {border-color:var(--green);background:var(--green-bg);}
-.sbar.err {border-color:var(--red);  background:var(--red-bg);}
-.sbar.busy{border-color:var(--blue); background:rgba(59,130,246,.1);}
-.sbar.warn{border-color:var(--yel);  background:var(--yel-bg);}
-.sdot{width:7px;height:7px;border-radius:50%;background:var(--t3);flex-shrink:0;}
-.sbar.ok   .sdot{background:var(--green);box-shadow:0 0 5px var(--green);}
-.sbar.err  .sdot{background:var(--red);}
-.sbar.busy .sdot{background:var(--blue);animation:pulse 1s infinite;}
-.sbar.warn .sdot{background:var(--yel);}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-
-/* ── DATE SELECT ── */
-.date-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
-select#date-sel{
-  flex:1;background:var(--s2);border:1px solid var(--bd2);color:var(--text);
-  padding:10px 12px;border-radius:8px;font-size:14px;font-weight:500;
-  -webkit-appearance:none;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer;
-}
-select#date-sel:focus{outline:none;border-color:var(--blue);}
-
-/* ── STATS ROW ── */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
-.stat-box{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px;text-align:center;}
-.stat-num{font-size:22px;font-weight:700;font-family:var(--mono);}
-.stat-num.green{color:var(--green);}
-.stat-num.red  {color:var(--red);}
-.stat-num.gray {color:var(--t2);}
-.stat-lbl{font-size:11px;color:var(--t3);margin-top:2px;}
-
-/* ── SEARCH ── */
-#search-wrap{position:relative;margin-bottom:10px;}
-#search-input{
-  width:100%;background:var(--s2);border:1px solid var(--bd);color:var(--text);
-  padding:10px 12px 10px 36px;border-radius:8px;font-size:14px;
-}
-#search-input:focus{outline:none;border-color:var(--blue);}
-.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--t3);}
-#search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;display:none;}
-
-/* ── SKELETON ── */
-.skeleton{
-  background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);
-  background-size:200% 100%;
-  animation:shimmer 1.2s infinite;
-  border-radius:6px;
-}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.sk-card{height:68px;border-radius:var(--r);margin-bottom:7px;}
-
-/* ── STUDENT CARDS ── */
-#student-list{display:flex;flex-direction:column;gap:7px;}
-
-.st-card{
-  background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);
-  padding:12px 14px;display:flex;align-items:center;gap:12px;
-  transition:border-color .2s,background .2s;
-}
-.st-card.is-present{border-color:var(--green);background:var(--green-bg);}
-.st-card.is-absent {border-color:var(--red);  background:var(--red-bg);}
-
-.st-num{font-family:var(--mono);font-size:12px;color:var(--t3);min-width:22px;text-align:right;flex-shrink:0;}
-.st-info{flex:1;min-width:0;}
-.st-name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.st-meta{font-size:11px;color:var(--t3);margin-top:2px;font-family:var(--mono);}
-.st-meta .absent-badge{
-  display:inline-block;padding:1px 6px;border-radius:10px;font-size:11px;
-  background:rgba(220,38,38,.15);color:var(--red);
-}
-.st-meta .absent-badge.zero{background:rgba(22,163,74,.12);color:var(--green);}
-
-.st-btns{display:flex;gap:6px;flex-shrink:0;}
-.btn-mark{
-  padding:7px 12px;border-radius:7px;font-size:13px;font-weight:600;
-  cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--t2);
-  transition:all .15s;white-space:nowrap;
-}
-.btn-mark:active{transform:scale(.95);}
-.btn-mark.p-btn.active{background:var(--green);border-color:var(--green2);color:#fff;}
-.btn-mark.a-btn.active{background:var(--red);  border-color:var(--red2);  color:#fff;}
-.btn-mark.p-btn:not(.active):hover{border-color:var(--green);color:var(--green);}
-.btn-mark.a-btn:not(.active):hover{border-color:var(--red);  color:var(--red);}
-
-.no-results{text-align:center;padding:30px 16px;color:var(--t3);font-size:14px;}
-.no-results span{font-size:36px;display:block;margin-bottom:8px;}
-
-/* ── CAMERA TAB ── */
-.cam-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:10px;}
-#video,#prev-img{width:100%;height:100%;object-fit:cover;display:block;}
-#prev-img{display:none;}
-.cam-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--t3);}
-.cam-ph span{font-size:40px;}
-.guide-layer{position:absolute;inset:0;display:none;align-items:center;justify-content:center;}
-.guide-box{width:78%;height:52%;border:2px solid rgba(59,130,246,.65);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.3);position:relative;}
-.guide-tip{position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:rgba(255,255,255,.6);font-family:var(--mono);}
-.corner{position:absolute;width:14px;height:14px;border-color:#3b82f6;border-style:solid;}
-.corner.tl{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:3px 0 0 0;}
-.corner.br{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 3px 0;}
-#canvas{display:none;}
-
-/* ── PROGRESS ── */
-.prog-wrap{height:3px;background:var(--bd);border-radius:2px;overflow:hidden;margin:10px 0;}
-.prog-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .2s;width:0%;}
-.ocr-box{background:rgba(0,0,0,.4);border:1px solid var(--bd);border-radius:6px;padding:9px 13px;font-family:var(--mono);font-size:12px;color:var(--t2);word-break:break-all;min-height:36px;line-height:1.6;}
-
-/* ── MATCHES ── */
-.match-list{display:flex;flex-direction:column;gap:7px;}
-.match-card{display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .15s;}
-.match-card:hover{border-color:var(--blue);background:rgba(59,130,246,.08);}
-.match-card.top-match{border-color:var(--green);}
-.match-card:active{transform:scale(.98);}
-.score-pill{font-family:var(--mono);font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px;flex-shrink:0;}
-.score-hi{background:var(--green-bg);color:var(--green);border:1px solid rgba(22,163,74,.3);}
-.score-lo{background:var(--yel-bg);  color:var(--yel);  border:1px solid rgba(217,119,6,.3);}
-.match-name{font-size:16px;font-weight:600;flex:1;}
-.match-sub{font-size:11px;color:var(--t3);font-family:var(--mono);margin-top:2px;}
-.scan-confirm{display:flex;flex-direction:column;gap:8px;padding:14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);margin-top:8px;}
-.scan-cname{font-size:18px;font-weight:700;text-align:center;padding:10px;background:rgba(0,0,0,.3);border-radius:7px;}
-.scan-row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-
-/* ── BUTTONS ── */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;width:100%;}
-.btn:disabled{opacity:.45;cursor:not-allowed;}
-.btn:active:not(:disabled){transform:scale(.97);}
-.btn-blue {background:var(--blue); color:#fff;}
-.btn-blue:not(:disabled):hover{background:var(--blue2);}
-.btn-green{background:var(--green);color:#fff;}
-.btn-green:not(:disabled):hover{background:var(--green2);}
-.btn-red  {background:var(--red);  color:#fff;}
-.btn-red:not(:disabled):hover{background:var(--red2);}
-.btn-ghost{background:var(--s3);border:1px solid var(--bd2);color:var(--t2);}
-.btn-ghost:not(:disabled):hover{border-color:var(--t2);color:var(--text);}
-.btn-sm{padding:8px 14px;font-size:13px;}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-
-.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin-bottom:12px;}
-.card-lbl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);font-family:var(--mono);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
-.card-lbl::after{content:'';flex:1;height:1px;background:var(--bd);}
-.hidden{display:none!important;}
-.mt8{margin-top:8px;}
-.t-muted{font-size:13px;color:var(--t2);margin-bottom:10px;}
-</style>
-</head>
-<body>
-
-<header>
-  <div class="logo">🎓</div>
-  <div class="hinfo">
-    <div class="htitle">ระบบเช็คชื่อชุมนุม</div>
-    <div class="hsub" id="hdate">—</div>
-  </div>
-  <div style="text-align:right;flex-shrink:0;">
-    <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:var(--blue);letter-spacing:1px;" id="live-clock">--:--:--</div>
-    <div style="font-size:10px;color:var(--t3);margin-top:1px;display:flex;align-items:center;gap:4px;justify-content:flex-end;">
-      <span id="online-dot" style="width:6px;height:6px;border-radius:50%;background:var(--t3);display:inline-block;"></span>
-      <span id="online-txt">กำลังเชื่อมต่อ</span>
-    </div>
-    <div style="font-size:12px;color:var(--t3);font-family:var(--mono);flex-shrink:0;" id="hcount">0 คน</div>
-  </div>
-</header>
-
-<div id="https-warn">
-  ⚠️ <strong>กล้องใช้ไม่ได้บน file://</strong> — ต้องเปิดผ่าน HTTPS<br>
-  วิธีเร็วที่สุด: Upload ขึ้น <a href="https://pages.github.com" target="_blank" style="color:#f59e0b">GitHub Pages</a> (ฟรี) หรือรันคำสั่ง <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;">npx serve .</code> แล้วเปิด http://localhost:3000
-</div>
-
-<div class="tab-bar">
-  <button class="tab-btn active" id="tab-list-btn" onclick="switchTab('list')">📋 รายชื่อ</button>
-  <button class="tab-btn" id="tab-scan-btn" onclick="switchTab('scan')">📷 สแกน OCR</button>
-</div>
-
-<!-- ════ TAB: LIST ════ -->
-<div id="tab-list" class="container">
-
-  <div class="sbar busy" id="sbar">
-    <div class="sdot"></div>
-    <span id="stext">กำลังโหลด...</span>
-  </div>
-
-  <!-- date selector -->
-  <div class="date-row">
-    <select id="date-sel" onchange="onDateChange()">
-      <option value="">⏳ กำลังโหลดรายการวัน...</option>
-    </select>
-  </div>
-
-  <!-- stats -->
-  <div class="stats">
-    <div class="stat-box">
-      <div class="stat-num green" id="cnt-present">0</div>
-      <div class="stat-lbl">✅ มาแล้ว</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-num red" id="cnt-absent">0</div>
-      <div class="stat-lbl">❌ ไม่มา</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-num gray" id="cnt-blank">0</div>
-      <div class="stat-lbl">⬜ ยังไม่เช็ค</div>
-    </div>
-  </div>
-
-  <!-- search -->
-  <div id="search-wrap">
-    <span class="search-icon">🔍</span>
-    <input type="search" id="search-input" placeholder="ค้นหาชื่อ..." oninput="onSearch()">
-    <button id="search-clear" onclick="clearSearch()">✕</button>
-  </div>
-
-  <!-- student list -->
-  <div id="student-list">
-    <div class="skeleton sk-card"></div>
-    <div class="skeleton sk-card"></div>
-    <div class="skeleton sk-card"></div>
-    <div class="skeleton sk-card"></div>
-    <div class="skeleton sk-card"></div>
-  </div>
-
-</div>
-
-<!-- ════ TAB: SCAN ════ -->
-<div id="tab-scan" class="container hidden">
-
-  <div class="sbar" id="scan-sbar">
-    <div class="sdot"></div>
-    <span id="scan-stext">กดเปิดกล้องเพื่อสแกนป้ายชื่อ</span>
-  </div>
-
-  <div class="card">
-    <div class="card-lbl">📷 กล้อง</div>
-
-    <div class="cam-wrap">
-      <div class="cam-ph" id="cam-ph"><span>📷</span><p style="font-size:13px;">กดปุ่มเปิดกล้อง</p></div>
-      <video id="video" autoplay playsinline muted></video>
-      <img id="prev-img" alt="preview">
-      <div class="guide-layer" id="guide-layer">
-        <div class="guide-box">
-          <div class="corner tl"></div><div class="corner br"></div>
-          <div class="guide-tip">วางป้ายชื่อในกรอบ</div>
-        </div>
-      </div>
-    </div>
-    <canvas id="canvas"></canvas>
-
-    <div id="cam-ctrl-open">
-      <button class="btn btn-blue" onclick="startCam()">📷 เปิดกล้อง</button>
-    </div>
-    <div class="row2 hidden" id="cam-ctrl-live">
-      <button class="btn btn-ghost" onclick="stopCam()">✕ ปิด</button>
-      <button class="btn btn-blue" id="btn-cap" onclick="capturePhoto()">📸 ถ่าย</button>
-    </div>
-    <div class="hidden mt8" id="cam-ctrl-post">
-      <button class="btn btn-ghost btn-sm" onclick="retakeCam()">↩ ถ่ายใหม่</button>
-    </div>
-  </div>
-
-  <div class="card hidden" id="scan-ocr-card">
-    <div class="card-lbl">🔬 OCR</div>
-    <div class="prog-wrap"><div class="prog-fill" id="prog-fill"></div></div>
-    <p class="t-muted">ข้อความที่ AI อ่านได้:</p>
-    <div class="ocr-box" id="ocr-box">—</div>
-  </div>
-
-  <div class="card hidden" id="scan-match-card">
-    <div class="card-lbl">🎯 เลือกชื่อ</div>
-    <p class="t-muted">แตะชื่อที่ถูกต้อง</p>
-    <div class="match-list" id="match-list"></div>
-    <button class="btn btn-ghost btn-sm mt8" onclick="retakeCam()">🔄 ถ่ายใหม่</button>
-  </div>
-
-  <div class="hidden" id="scan-confirm-card">
-    <div class="scan-confirm">
-      <div class="card-lbl" style="margin-bottom:8px;">✅ ยืนยัน</div>
-      <div class="scan-cname" id="scan-cname">—</div>
-      <div class="scan-row2">
-        <button class="btn btn-green" onclick="scanMark('present')">✅ มาเรียน</button>
-        <button class="btn btn-red"   onclick="scanMark('absent')">❌ ไม่มา</button>
-      </div>
-      <button class="btn btn-ghost btn-sm mt8" onclick="backToMatches()">← เลือกอื่น</button>
-    </div>
-  </div>
-
-</div><!-- /tab-scan -->
-
-<script>
-// ═══════════════════════════════════════════════
-// ⚙️ CONFIG — แก้ก่อนใช้งาน
-// ═══════════════════════════════════════════════
-const CONFIG = {
-  SCRIPT_URL   : "https://script.google.com/macros/s/AKfycbzGmJ-EcdFN7J6tTROvXkXjuS6_f_4J5VecdQjZ5vV83BcMrbEqfteuAoONZt87dZYmaQ/exec",
-  TOKEN        : "9d1db7473be911b55b5dce9ef999a52398a5bf94926e2b1ec95ea80ccb48b333",
-  THRESHOLD    : 0.55,
-  MAX_MATCH    : 5,
-  CAM_FACING   : "environment",  // ✅ FIX 1: เพิ่ม comma ที่หายไป (เดิมไม่มี → SyntaxError ทั้งหน้า)
-  AUTO_REFRESH : 300,
-  REFRESH_WARN : 5
-};
-
-// ═══════════════════════════════════════════════
-// ✅ FIX 2: เพิ่ม Levenshtein function ที่หายไป
-// (เดิมไม่มีเลย แต่ถูกเรียกใน sim() → ReferenceError ทุกครั้งที่ OCR ทำงาน)
-// ═══════════════════════════════════════════════
-function lev(a, b) {
-  const m = a.length, n = b.length;
-  if (!m) return n;
-  if (!n) return m;
-  // ใช้ single-row DP เพื่อประหยัด memory
-  let prev = Array.from({length: n + 1}, (_, j) => j);
-  for (let i = 1; i <= m; i++) {
-    const curr = [i];
-    for (let j = 1; j <= n; j++) {
-      curr[j] = a[i-1] === b[j-1]
-        ? prev[j-1]
-        : 1 + Math.min(prev[j], curr[j-1], prev[j-1]);
+    /* ── Page Wrap ── */
+    @import url('https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+    :root {
+        --font-thai: 'Prompt', sans-serif;
     }
-    prev = curr;
-  }
-  return prev[n];
-}
-
-// ═══════════════════════════════════════════════
-// ✅ FIX 3: localStorage Cache — แสดงผลทันที ไม่รอ API
-// ═══════════════════════════════════════════════
-const CACHE = {
-  KEY_STUDENTS : "chk_students_v1",
-  KEY_COLS     : "chk_cols_v1",
-  TTL          : 10 * 60 * 1000,   // 10 นาที
-
-  save(key, data) {
-    try { localStorage.setItem(key, JSON.stringify({t: Date.now(), d: data})); } catch(e) {}
-  },
-  load(key) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const {t, d} = JSON.parse(raw);
-      if (Date.now() - t > CACHE.TTL) return null;
-      return d;
-    } catch(e) { return null; }
-  }
-};
-
-// ═══════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════
-const S = {
-  students : [],
-  columns  : [],
-  selCol   : null,
-  stream   : null,
-  ocrWorker: null,
-  ocrReady : false,
-  scanSt   : null,
-  ocrRaw   : "",
-  tab      : "list"
-};
-
-// ── Idle detection ──
-const IDLE = {
-  timeout   : 15,
-  lastActive: Date.now(),
-  isIdle    : false
-};
-function resetIdle() {
-  IDLE.lastActive = Date.now();
-  if (IDLE.isIdle) {
-    IDLE.isIdle = false;
-    const dot = $("online-dot"), txt = $("online-txt");
-    dot.style.animation = "";
-    if (_lastSync) txt.textContent = "ซิงค์ " + _lastSync;
-  }
-}
-function checkIdle() {
-  IDLE.isIdle = (Date.now() - IDLE.lastActive) / 1000 >= IDLE.timeout;
-  return IDLE.isIdle;
-}
-["mousemove","mousedown","scroll","touchstart","touchmove","keydown","click"]
-  .forEach(ev => window.addEventListener(ev, resetIdle, {passive: true}));
-
-// ═══════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════
-const $ = id => document.getElementById(id);
-
-function esc(s) {
-  const d = document.createElement("div");
-  d.appendChild(document.createTextNode(String(s)));
-  return d.innerHTML;
-}
-
-function setStatus(msg, type="normal", scan=false) {
-  const bar = scan ? $("scan-sbar") : $("sbar");
-  const txt = scan ? $("scan-stext") : $("stext");
-  bar.className = "sbar " + (
-    type==="ok"   ? "ok"   :
-    type==="err"  ? "err"  :
-    type==="warn" ? "warn" :
-    type==="busy" ? "busy" : ""
-  );
-  txt.textContent = msg;
-}
-
-function updateCounts() {
-  const p = S.students.filter(s => s.status === "present").length;
-  const a = S.students.filter(s => s.status === "absent").length;
-  const n = S.students.filter(s => !s.status).length;
-  $("cnt-present").textContent = p;
-  $("cnt-absent").textContent  = a;
-  $("cnt-blank").textContent   = n;
-}
-
-// ═══════════════════════════════════════════════
-// API — เพิ่ม timeout ป้องกันค้าง
-// ═══════════════════════════════════════════════
-async function apiGet(action, params={}, timeoutMs=12000) {
-  const u = new URL(CONFIG.SCRIPT_URL);
-  u.searchParams.set("token", CONFIG.TOKEN);
-  u.searchParams.set("action", action);
-  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-
-  const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(u.toString(), {signal: ctrl.signal});
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    return d;
-  } finally {
-    clearTimeout(tid);
-  }
-}
-
-async function apiPost(action, body={}, timeoutMs=12000) {
-  const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(CONFIG.SCRIPT_URL, {
-      method  : "POST",
-      headers : {"Content-Type": "text/plain;charset=utf-8"},
-      body    : JSON.stringify({token: CONFIG.TOKEN, action, ...body}),
-      signal  : ctrl.signal
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    return d;
-  } finally {
-    clearTimeout(tid);
-  }
-}
-
-// ═══════════════════════════════════════════════
-// DATE COLUMN
-// ═══════════════════════════════════════════════
-function buildDateDropdown(allCols, todayCol) {
-  const sel = $("date-sel");
-  sel.innerHTML = '<option value="">— เลือกวันที่เช็คชื่อ —</option>';
-  allCols.forEach(c => {
-    const o = document.createElement("option");
-    o.value = c.col;
-    const isToday = todayCol && c.col === todayCol.col;
-    o.textContent = isToday ? "📅 " + c.header + " (วันนี้)" : c.header;
-    if (isToday) o.style.fontWeight = "700";
-    sel.appendChild(o);
-  });
-}
-
-async function onDateChange() {
-  const sel    = $("date-sel");
-  const colNum = parseInt(sel.value);
-  if (!colNum) { S.selCol = null; renderStudents(""); return; }
-  S.selCol = S.columns.find(c => c.col === colNum) || null;
-  if (!S.selCol) return;
-  setStatus("กำลังโหลดสถานะ...", "busy");
-  try {
-    const data = await apiGet("getStudents", {col: S.selCol.col});
-    data.forEach(d => {
-      const st = S.students.find(s => s.row === d.row);
-      if (st) st.status = d.status;
-    });
-    renderStudents($("search-input").value);
-    setStatus(`${S.selCol.header} — ${S.students.length} คน`, "ok");
-  } catch(err) {
-    setStatus("โหลดสถานะไม่ได้: " + err.message, "err");
-  }
-}
-
-// ═══════════════════════════════════════════════
-// STUDENT LIST RENDER
-// ═══════════════════════════════════════════════
-function renderStudents(query) {
-  const q = (query || "").trim().toLowerCase();
-  const filtered = q
-    ? S.students.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        (s.firstName || "").toLowerCase().includes(q)
-      )
-    : S.students;
-
-  const list = $("student-list");
-
-  if (!filtered.length) {
-    list.innerHTML = `<div class="no-results"><span>🔍</span>${q ? "ไม่พบชื่อ " + q : "ยังไม่มีข้อมูล"}</div>`;
-    updateCounts();
-    return;
-  }
-
-  list.innerHTML = filtered.map((st, idx) => {
-    const pc      = st.status === "present" ? "active" : "";
-    const ac      = st.status === "absent"  ? "active" : "";
-    const cardCls = st.status === "present" ? "is-present" : st.status === "absent" ? "is-absent" : "";
-    const badge   = st.absentCount === 0
-      ? `<span class="absent-badge zero">ขาด 0 ครั้ง</span>`
-      : `<span class="absent-badge">ขาด ${st.absentCount} ครั้ง</span>`;
-    return `
-      <div class="st-card ${cardCls}" id="stc-${st.row}">
-        <div class="st-num">${idx + 1}</div>
-        <div class="st-info">
-          <div class="st-name">${esc(st.name)}</div>
-          <div class="st-meta">${badge}</div>
-        </div>
-        <div class="st-btns">
-          <button class="btn-mark p-btn ${pc}" onclick="listMark(${st.row},'present')">✅ มา</button>
-          <button class="btn-mark a-btn ${ac}" onclick="listMark(${st.row},'absent')">❌ ไม่มา</button>
-        </div>
-      </div>`;
-  }).join("");
-
-  updateCounts();
-}
-
-async function listMark(studentRow, status) {
-  if (!S.selCol) { alert("กรุณาเลือกวันที่ก่อน"); return; }
-  const st = S.students.find(s => s.row === studentRow);
-  if (!st) return;
-
-  const newStatus = st.status === status ? "clear" : status;
-  st.status = newStatus === "clear" ? null : newStatus;
-
-  const card = $("stc-" + studentRow);
-  if (card) {
-    card.className = "st-card" +
-      (st.status === "present" ? " is-present" : st.status === "absent" ? " is-absent" : "");
-    card.querySelectorAll(".btn-mark").forEach(b => b.classList.remove("active"));
-    if (st.status) {
-      const b = card.querySelector(st.status === "present" ? ".p-btn" : ".a-btn");
-      if (b) b.classList.add("active");
+    .login-page-wrap {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px 48px;
+        background:
+            radial-gradient(ellipse 70% 40% at 50% 0%, rgba(224, 95, 0, 0.05) 0%, transparent 65%),
+            var(--off-white, #f8f8f6);
+        position: relative;
+        z-index: 10;
     }
-  }
-  updateCounts();
 
-  try {
-    await apiPost("markAttendance", {
-      studentRow : studentRow,
-      colIndex   : S.selCol.col,
-      status     : newStatus
-    });
-    setStatus(
-      `✅ ${st.name}: ${newStatus === "present" ? "มาเรียน" : newStatus === "absent" ? "ไม่มา" : "ล้างข้อมูล"}`,
-      "ok"
-    );
-  } catch(err) {
-    // revert
-    st.status = status;
-    if (card) card.className = "st-card" +
-      (status === "present" ? " is-present" : status === "absent" ? " is-absent" : "");
-    setStatus("❌ บันทึกไม่สำเร็จ: " + err.message, "err");
-  }
-}
+    /* ── Authority Header Bar ── */
+    .login-authority-bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 28px;
+        opacity: 0;
+        animation: login-fade-up 0.5s var(--ease-out, ease) 0.05s both;
+    }
 
-// ═══════════════════════════════════════════════
-// SEARCH
-// ═══════════════════════════════════════════════
-function onSearch() {
-  const q = $("search-input").value;
-  $("search-clear").style.display = q ? "block" : "none";
-  renderStudents(q);
-}
-function clearSearch() {
-  $("search-input").value = "";
-  $("search-clear").style.display = "none";
-  renderStudents("");
-}
+    .auth-badge {
+        font-family: var(--font-thai, 'Prompt', sans-serif);
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 3px;
+        color: var(--orange, #e05f00);
+        text-transform: uppercase;
+    }
 
-// ═══════════════════════════════════════════════
-// TAB SWITCH
-// ═══════════════════════════════════════════════
-function switchTab(tab) {
-  S.tab = tab;
-  $("tab-list").classList.toggle("hidden", tab !== "list");
-  $("tab-scan").classList.toggle("hidden", tab !== "scan");
-  $("tab-list-btn").classList.toggle("active", tab === "list");
-  $("tab-scan-btn").classList.toggle("active", tab === "scan");
-}
+    .auth-divider {
+        width: 1px;
+        height: 14px;
+        background: var(--border-mid, rgba(15, 15, 15, 0.14));
+    }
 
-// ═══════════════════════════════════════════════
-// CAMERA
-// ═══════════════════════════════════════════════
-async function startCam() {
-  try {
-    setScanStatus("กำลังขอสิทธิ์กล้อง...", "busy");
-    S.stream = await navigator.mediaDevices.getUserMedia({
-      video: {facingMode: {ideal: CONFIG.CAM_FACING}, width: {ideal: 1280}, height: {ideal: 720}},
-      audio: false
-    });
-    const v = $("video");
-    v.srcObject = S.stream;
-    await v.play();
-    $("cam-ph").style.display = "none";
-    $("guide-layer").style.display = "flex";
-    $("cam-ctrl-open").classList.add("hidden");
-    $("cam-ctrl-live").classList.remove("hidden");
-    setScanStatus("พร้อมสแกน", "ok");
-  } catch(err) {
-    setScanStatus("เปิดกล้องไม่ได้: " + err.message, "err");
-    if (location.protocol === "file:") $("https-warn").style.display = "block";
-  }
-}
+    .auth-sub {
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        color: var(--text-muted, #888);
+        text-transform: uppercase;
+    }
 
-function stopCam() {
-  if (S.stream) { S.stream.getTracks().forEach(t => t.stop()); S.stream = null; }
-  const v = $("video");
-  v.srcObject = null;
-  v.style.display = "block";
-  $("prev-img").style.display = "none";
-  $("cam-ph").style.display = "flex";
-  $("guide-layer").style.display = "none";
-  $("cam-ctrl-live").classList.add("hidden");
-  $("cam-ctrl-open").classList.remove("hidden");
-  $("cam-ctrl-post").classList.add("hidden");
-  setScanStatus("กล้องปิดแล้ว", "normal");
-}
+    /* ── Login Card ── */
+    .login-card {
+        width: 100%;
+        max-width: 440px;
+        background: var(--white, #fff);
+        border: 1.5px solid var(--border-light, rgba(15, 15, 15, 0.08));
+        border-radius: 20px;
+        padding: 40px 36px 32px;
+        box-shadow:
+            0 2px 8px rgba(0, 0, 0, 0.06),
+            0 12px 40px rgba(0, 0, 0, 0.08),
+            0 0 0 1px rgba(224, 95, 0, 0.04);
+        position: relative;
+        overflow: hidden;
+        opacity: 0;
+        animation: login-fade-up 0.55s var(--ease-out, ease) 0.1s both;
+    }
 
-async function capturePhoto() {
-  const v = $("video"), c = $("canvas"), p = $("prev-img");
-  c.width  = v.videoWidth  || 640;
-  c.height = v.videoHeight || 480;
-  const ctx = c.getContext("2d");
-  ctx.drawImage(v, 0, 0);
-  preprocessImg(c, ctx);
-  const url = c.toDataURL("image/png");
-  p.src = url;
-  p.style.display = "block";
-  v.style.display = "none";
-  $("guide-layer").style.display = "none";
-  $("cam-ctrl-live").classList.add("hidden");
-  $("cam-ctrl-post").classList.remove("hidden");
-  await runOCR(url);
-}
+    /* Top orange rule */
+    .login-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg,
+                var(--black, #0f0f0f) 0%,
+                var(--orange, #e05f00) 40%,
+                var(--orange-hover, #c45200) 60%,
+                var(--black, #0f0f0f) 100%);
+    }
 
-function preprocessImg(canvas, ctx) {
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height), d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-    const e = g < 128 ? Math.max(0, g * 0.7) : Math.min(255, g * 1.2 + 25);
-    d[i] = d[i+1] = d[i+2] = e;
-  }
-  ctx.putImageData(img, 0, 0);
-}
+    /* ── Header: Logo + Title ── */
+    .login-header {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 28px;
+    }
 
-function retakeCam() {
-  const v = $("video"), p = $("prev-img");
-  p.style.display = "none";
-  v.style.display = "block";
-  $("cam-ctrl-post").classList.add("hidden");
-  if (S.stream) {
-    $("guide-layer").style.display = "flex";
-    $("cam-ctrl-live").classList.remove("hidden");
-  } else {
-    $("cam-ctrl-open").classList.remove("hidden");
-    $("cam-ph").style.display = "flex";
-  }
-  $("scan-ocr-card").classList.add("hidden");
-  $("scan-match-card").classList.add("hidden");
-  $("scan-confirm-card").classList.add("hidden");
-  S.scanSt = null;
-  setScanStatus("พร้อมสแกน", "ok");
-}
+    .login-logo-wrap {
+        position: relative;
+        width: 64px;
+        height: 64px;
+        flex-shrink: 0;
+    }
 
-// ═══════════════════════════════════════════════
-// OCR
-// ═══════════════════════════════════════════════
-async function initOCR() {
-  try {
-    setScanStatus("กำลังโหลด OCR Engine...", "busy");
-    S.ocrWorker = await Tesseract.createWorker("tha+eng", 1, {logger: ()=>{}});
-    S.ocrReady  = true;
-    setScanStatus("OCR พร้อม", "ok");
-  } catch(e) {
-    setScanStatus("โหลด OCR ไม่สำเร็จ", "err");
-  }
-}
+    .login-logo-img {
+        position: absolute;
+        inset: 6px;
+        width: calc(100% - 12px);
+        height: calc(100% - 12px);
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--orange, #e05f00);
+    }
 
-async function runOCR(imgData) {
-  $("scan-ocr-card").classList.remove("hidden");
-  $("scan-match-card").classList.add("hidden");
-  $("scan-confirm-card").classList.add("hidden");
-  $("ocr-box").textContent = "กำลังวิเคราะห์...";
-  $("prog-fill").style.width = "0%";
-  setScanStatus("AI กำลังอ่านตัวอักษร...", "busy");
-  animateProg();
-  try {
-    let raw;
-    if (S.ocrReady && S.ocrWorker) {
-      const r = await S.ocrWorker.recognize(imgData);
-      raw = r.data.text;
-    } else {
-      const r = await Tesseract.recognize(imgData, "tha+eng", {
-        logger: m => {
-          if (m.status === "recognizing text")
-            $("prog-fill").style.width = Math.round(m.progress * 100) + "%";
+    .login-logo-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 1.5px solid rgba(224, 95, 0, 0.25);
+    }
+
+    .login-title-block {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .login-title {
+        font-family: var(--font-thai, 'Prompt', sans-serif);
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--black, #0f0f0f);
+        letter-spacing: 0.5px;
+        line-height: 1.2;
+        margin: 0 0 4px;
+    }
+
+    .login-title-accent {
+        color: var(--orange, #e05f00);
+    }
+
+    .login-subtitle {
+        font-size: 12px;
+        color: var(--text-muted, #888);
+        letter-spacing: 0.2px;
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    /* ── Section Divider ── */
+    .login-sep {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .login-sep-line {
+        flex: 1;
+        height: 1px;
+        background: var(--border-light, rgba(15, 15, 15, 0.08));
+    }
+
+    .login-sep-icon {
+        font-size: 13px;
+        opacity: 0.6;
+    }
+
+    /* ── Alert Banners ── */
+    .login-alert {
+        display: none;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 13px;
+        line-height: 1.55;
+        margin-bottom: 20px;
+        font-family: var(--font-thai, 'Prompt', sans-serif);
+    }
+
+    .login-alert.show {
+        display: flex;
+    }
+
+    .login-alert--error {
+        background: rgba(192, 57, 43, 0.07);
+        border: 1.5px solid rgba(192, 57, 43, 0.28);
+        color: var(--danger, #c0392b);
+    }
+
+    .login-alert--lockout {
+        background: rgba(15, 15, 15, 0.04);
+        border: 1.5px solid rgba(15, 15, 15, 0.16);
+        color: var(--text-secondary, #4a4a4a);
+        font-size: 12.5px;
+    }
+
+    .login-alert-icon {
+        flex-shrink: 0;
+        font-size: 14px;
+        margin-top: 1px;
+    }
+
+    /* ── Form ── */
+    .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+    }
+
+    /* Field Group */
+    .login-field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .login-label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary, #4a4a4a);
+        text-transform: uppercase;
+        font-family: var(--font-thai, 'Prompt', sans-serif);
+    }
+
+    .label-icon {
+        font-size: 13px;
+    }
+
+    /* Input Wrap */
+    .login-input-wrap {
+        position: relative;
+    }
+
+    .login-input {
+        width: 100%;
+        background: var(--surface, #f2f1ef);
+        border: 1.5px solid var(--border-light, rgba(15, 15, 15, 0.08));
+        border-radius: 10px;
+        padding: 13px 16px;
+        font-size: 15px;
+        font-family: var(--font-thai, 'Prompt', sans-serif);
+        color: var(--text-primary, #111);
+        outline: none;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        -webkit-appearance: none;
+    }
+
+    .login-input::placeholder {
+        color: var(--text-faint, #bbb);
+        font-size: 14px;
+    }
+
+    .login-input:hover {
+        border-color: var(--border-mid, rgba(15, 15, 15, 0.14));
+    }
+
+    .login-input:focus {
+        background: var(--white, #fff);
+        border-color: var(--orange, #e05f00);
+        box-shadow: 0 0 0 3px rgba(224, 95, 0, 0.10);
+    }
+
+    .login-input.field-error {
+        border-color: var(--danger, #c0392b);
+        box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.10);
+        animation: field-shake 0.32s ease-in-out;
+    }
+
+    @keyframes field-shake {
+
+        0%,
+        100% {
+            transform: translateX(0);
         }
-      });
-      raw = r.data.text;
+
+        25%,
+        75% {
+            transform: translateX(-5px);
+        }
+
+        50% {
+            transform: translateX(5px);
+        }
     }
-    $("prog-fill").style.width = "100%";
-    S.ocrRaw = raw;
-    $("ocr-box").textContent = raw || "(อ่านไม่ได้)";
-    renderMatches(findMatches(raw));
-  } catch(e) {
-    $("ocr-box").textContent = "เกิดข้อผิดพลาด";
-    setScanStatus("OCR Error: " + e.message, "err");
-  }
-}
 
-function animateProg() {
-  let p = 0;
-  const iv = setInterval(() => {
-    p = Math.min(92, p + Math.random() * 10);
-    $("prog-fill").style.width = p + "%";
-    if (p >= 92) clearInterval(iv);
-  }, 250);
-}
+    /* Password toggle button */
+    .login-input-wrap--pw .login-input {
+        padding-right: 48px;
+    }
 
-// ═══════════════════════════════════════════════
-// FUZZY MATCH — Thai-aware (Levenshtein + Trigram + Phonetic)
-// ═══════════════════════════════════════════════
-function thaiNormalize(s) {
-  return s
-    .replace(/[\u0E48-\u0E4B\u0E47\u0E4C]/g, "")
-    .replace(/\s+/g, "");
-}
+    .login-pw-toggle {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        color: var(--text-muted, #888);
+        padding: 4px;
+        line-height: 1;
+        opacity: 0.7;
+        transition: opacity 0.15s;
+    }
 
-function trigrams(s) {
-  const set = new Set();
-  for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
-  return set;
-}
+    .login-pw-toggle:hover {
+        opacity: 1;
+    }
 
-function trigramSim(a, b) {
-  const ta = trigrams(a), tb = trigrams(b);
-  if (!ta.size || !tb.size) return 0;
-  let inter = 0;
-  ta.forEach(g => { if (tb.has(g)) inter++; });
-  return inter / Math.max(ta.size, tb.size);
-}
+    /* Underline accent (purely visual) */
+    .login-input-line {
+        position: absolute;
+        bottom: 0;
+        left: 16px;
+        right: 16px;
+        height: 2px;
+        background: var(--orange, #e05f00);
+        border-radius: 0 0 2px 2px;
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform 0.22s ease;
+        pointer-events: none;
+    }
 
-function sim(a, b) {
-  a = a.replace(/\s+/g, "");
-  b = b.replace(/\s+/g, "");
-  const lng  = Math.max(a.length, b.length);
-  const lvSim = lng === 0 ? 1 : (lng - lev(a, b)) / lng;
-  const tgSim = trigramSim(a, b);
-  const an = thaiNormalize(a), bn = thaiNormalize(b);
-  const phLng = Math.max(an.length, bn.length);
-  const phSim = phLng === 0 ? 1 : (phLng - lev(an, bn)) / phLng;
-  return lvSim * 0.40 + tgSim * 0.30 + phSim * 0.30;
-}
+    .login-input:focus+.login-input-line,
+    .login-input:focus~.login-input-line,
+    .login-input-wrap--pw .login-input:focus~.login-pw-toggle+.login-input-line,
+    .login-input-wrap--pw:focus-within .login-input-line {
+        transform: scaleX(1);
+    }
 
-function findMatches(raw) {
-  const clean = raw
-    .replace(/\n/g, " ")
-    .replace(/[^\u0E00-\u0E7F\u0E80-\u0EFFa-zA-Z\s.]/g, "")
-    .replace(/\s+/g, " ").trim();
-  if (!clean) return [];
+    .login-field-hint {
+        font-size: 11px;
+        color: var(--text-faint, #bbb);
+        letter-spacing: 0.1px;
+        padding-left: 2px;
+    }
 
-  const tokens = [clean, ...clean.split(" ").filter(t => t.length > 1)];
+    /* ── Attempt Tracker ── */
+    .login-attempt-row {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: rgba(192, 57, 43, 0.04);
+        border: 1px solid rgba(192, 57, 43, 0.16);
+        border-radius: 8px;
+        margin-top: -6px;
+    }
 
-  return S.students
-    .map(s => {
-      const targets = [s.name, s.firstName || "", s.lastName || ""].filter(Boolean);
-      let best = 0;
-      tokens.forEach(tok => {
-        targets.forEach(tgt => { best = Math.max(best, sim(tok, tgt)); });
-      });
-      return {...s, score: best};
-    })
-    .filter(r => r.score >= CONFIG.THRESHOLD)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, CONFIG.MAX_MATCH);
-}
+    .login-attempt-row.show {
+        display: flex;
+    }
 
-function renderMatches(matches) {
-  $("scan-match-card").classList.remove("hidden");
-  const list = $("match-list");
-  if (!matches.length) {
-    list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--t3);"><div style="font-size:32px;margin-bottom:8px;">🤔</div><p>ไม่พบชื่อที่ใกล้เคียง<br><small>ลองถ่ายให้ชัดขึ้น</small></p></div>`;
-    setScanStatus("ไม่พบชื่อ — ถ่ายใหม่", "err");
-    return;
-  }
-  list.innerHTML = matches.map((m, i) => {
-    const pct = Math.round(m.score * 100);
-    const hi  = m.score >= 0.80;
-    return `<div class="match-card ${i === 0 ? "top-match" : ""}" onclick="pickMatch(${m.row})">
-      <div class="score-pill ${hi ? "score-hi" : "score-lo"}">${pct}%</div>
-      <div>
-        <div class="match-name">${esc(m.name)}</div>
-        <div class="match-sub">แถว ${m.row} · ขาด ${m.absentCount} ครั้ง</div>
+    .attempt-label {
+        font-size: 11.5px;
+        color: var(--text-secondary, #555);
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .attempt-dots {
+        display: flex;
+        gap: 6px;
+        flex: 1;
+    }
+
+    .attempt-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 1.5px solid var(--border-mid, rgba(15, 15, 15, 0.14));
+        background: transparent;
+        transition: all 0.2s ease;
+    }
+
+    .attempt-dot.used {
+        background: var(--danger, #c0392b);
+        border-color: var(--danger, #c0392b);
+        box-shadow: 0 0 6px rgba(192, 57, 43, 0.35);
+    }
+
+    .attempt-remain {
+        font-size: 11px;
+        color: var(--danger, #c0392b);
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    /* ── Submit Button ── */
+    .login-btn {
+        position: relative;
+        width: 100%;
+        padding: 15px 24px;
+        background: var(--black, #0f0f0f);
+        border: 2px solid var(--black, #0f0f0f);
+        border-radius: 12px;
+        color: #fff;
+        font-family: var(--font-thai, 'Prompt', sans-serif);
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.22s ease;
+        margin-top: 4px;
+        min-height: 52px;
+    }
+
+    /* Orange fill on hover */
+    .login-btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: var(--orange, #e05f00);
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform 0.24s ease;
+    }
+
+    .login-btn:hover:not(:disabled)::after {
+        transform: scaleX(1);
+    }
+
+    .login-btn:hover:not(:disabled) {
+        border-color: var(--orange, #e05f00);
+        box-shadow: 0 6px 24px rgba(224, 95, 0, 0.22);
+        transform: translateY(-1px);
+    }
+
+    .login-btn:active:not(:disabled) {
+        transform: scale(0.98);
+        transition: transform 0.08s;
+    }
+
+    .login-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .login-btn-inner,
+    .login-btn-loading {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .login-btn-arrow {
+        font-size: 18px;
+        transition: transform 0.18s ease;
+    }
+
+    .login-btn:hover:not(:disabled) .login-btn-arrow {
+        transform: translateX(5px);
+    }
+
+    /* Spinner for loading state */
+    .login-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* ── Card Footer ── */
+    .login-footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 24px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border-light, rgba(15, 15, 15, 0.07));
+        font-size: 11px;
+        color: var(--text-faint, #bbb);
+        letter-spacing: 0.3px;
+    }
+
+    /* ── Bottom Watermark ── */
+    .login-watermark {
+        margin-top: 24px;
+        font-size: 10px;
+        color: var(--text-faint, #bbb);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        text-align: center;
+        opacity: 0;
+        animation: login-fade-up 0.5s ease 0.35s both;
+    }
+
+    /* ── Animations ── */
+    @keyframes login-fade-up {
+        from {
+            opacity: 0;
+            transform: translateY(16px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 480px) {
+        .login-card {
+            padding: 32px 22px 28px;
+            border-radius: 16px;
+        }
+
+        .login-header {
+            gap: 14px;
+        }
+
+        .login-logo-wrap {
+            width: 52px;
+            height: 52px;
+        }
+
+        .login-title {
+            font-size: 17px;
+        }
+
+        .login-authority-bar {
+            gap: 10px;
+        }
+
+        .auth-badge,
+        .auth-sub {
+            font-size: 9px;
+            letter-spacing: 2px;
+        }
+    }
+
+    /* ── Utility ── */
+    .hidden {
+        display: none !important;
+    }
+</style>
+
+
+<!-- ════════════════════════════════════════════════════════
+     LOGIN LOGIC — Auth + Brute Force Guard
+     ════════════════════════════════════════════════════════ -->
+<script>
+    /* ── Config ── */
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwA8TvlPMkmAkZQD7IZ4PWe5_B1ppIpvKI-3TYMnpKUxXU5bOXXV37MyMJw_arualV4/exec";
+
+    (function LoginController() {
+
+        const MAX_ATTEMPTS = 3;
+        const LOCKOUT_KEY = "rotc_lockout";
+        const BLOCK_KEY = "rotc_blocked";
+        const ATTEMPT_KEY = "rotc_fail_count";
+
+        /* ─────────────────────────────────────────────
+   SECURITY STORE — อ่าน / เขียนสถานะความปลอดภัย
+───────────────────────────────────────────── */
+        const SecStore = {
+            getAttempts() {
+                return parseInt(localStorage.getItem(ATTEMPT_KEY) || "0", 10);
+            },
+            setAttempts(n) {
+                localStorage.setItem(ATTEMPT_KEY, String(n));
+            },
+            isBlocked() {
+                if (localStorage.getItem(BLOCK_KEY) === "1") return true;
+                const exp = parseInt(localStorage.getItem(LOCKOUT_KEY) || "0", 10);
+                return exp > 0 && Date.now() < exp;
+            },
+            setTimedLockout(durationMs) {
+                localStorage.setItem(LOCKOUT_KEY, String(Date.now() + durationMs));
+            },
+            setPermBlock() {
+                localStorage.setItem(BLOCK_KEY, "1");
+            },
+            clearBlock() {
+                localStorage.removeItem(BLOCK_KEY);
+                localStorage.removeItem(LOCKOUT_KEY);
+                localStorage.removeItem(ATTEMPT_KEY);
+            }
+        };
+
+        /* ─────────────────────────────────────────────
+           clearSessionAndBlock — ล้าง Token และล็อกเครื่อง
+        ───────────────────────────────────────────── */
+        function clearSessionAndBlock() {
+            ["rotc_token", "rotc_username", "rotc_full_name",
+                "rotc_role", "rotc_year", "rotc_script_url"].forEach(k => {
+                    localStorage.removeItem(k);
+                });
+
+            SecStore.setPermBlock();
+            localStorage.setItem("rotc_block_ts", new Date().toISOString());
+            _showBlockedUI();
+        }
+
+        /* ─────────────────────────────────────────────
+           _showBlockedUI — หน้าจอแสดงเมื่อโดนบล็อกระบบ
+        ───────────────────────────────────────────── */
+        function _showBlockedUI() {
+            const card = document.querySelector(".login-card");
+            if (!card) return;
+
+            card.innerHTML = `
+    <div style="padding: 36px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+      <div style="font-size: 48px; line-height:1;">🔒</div>
+      <div style="font-size: 16px; font-weight: 800; color: #c0392b; font-family: var(--font-thai, sans-serif); letter-spacing: 0.5px;">ถูกระงับการเข้าถึงระบบ</div>
+      <p style="font-size: 13px; color: #555; line-height: 1.7; max-width: 320px; font-family: var(--font-thai, sans-serif);">
+        โปรดตรวจสอบข้อมูลให้ละเอียด รหัสผ่านต้องตรงตามที่ Superadmin หรือผู้ดูแลระบบสูงสุดกำหนดไว้เท่านั้น<br><br>
+        <strong>Browser นี้ถูกล็อกไว้แล้ว</strong><br>
+        กรุณาติดต่อผู้ดูแลระบบเพื่อปลดล็อก
+      </p>
+      <div style="font-size: 10.5px; color: #aaa; font-family: 'IBM Plex Mono', monospace; margin-top: 8px;">
+        BLOCKED · ${new Date().toLocaleString("th-TH")}
       </div>
-      <div style="font-size:16px;opacity:.5;">${i === 0 ? "⭐" : "→"}</div>
-    </div>`;
-  }).join("");
-  setScanStatus(`พบ ${matches.length} ชื่อที่ใกล้เคียง`, "ok");
-}
+    </div>
+  `;
+        }
 
-function pickMatch(row) {
-  S.scanSt = S.students.find(s => s.row === row);
-  if (!S.scanSt) return;
-  $("scan-cname").textContent = S.scanSt.name;
-  $("scan-match-card").classList.add("hidden");
-  $("scan-confirm-card").classList.remove("hidden");
-}
+        /* ─────────────────────────────────────────────
+           triggerLockout — ทำงานเมื่อกรอกผิดครบกำหนด
+        ───────────────────────────────────────────── */
+        function triggerLockout() {
+            clearSessionAndBlock();
+            const alertBox = document.getElementById("login-alert");
+            if (alertBox) alertBox.classList.remove("show");
+        }
 
-function backToMatches() {
-  $("scan-confirm-card").classList.add("hidden");
-  $("scan-match-card").classList.remove("hidden");
-}
+        /* ── State ── */
+        let isSubmitting = false;
 
-async function scanMark(status) {
-  if (!S.scanSt) return;
-  if (!S.selCol) { alert("กลับไปแท็บรายชื่อแล้วเลือกวันที่ก่อน"); return; }
-  const btns = $("scan-confirm-card").querySelectorAll("button");
-  btns.forEach(b => b.disabled = true);
-  setScanStatus("กำลังบันทึก...", "busy");
-  try {
-    await apiPost("markAttendance", {
-      studentRow : S.scanSt.row,
-      colIndex   : S.selCol.col,
-      status
-    });
-    const st = S.students.find(s => s.row === S.scanSt.row);
-    if (st) st.status = status;
-    setScanStatus(`✅ บันทึก ${S.scanSt.name}: ${status === "present" ? "มาเรียน" : "ไม่มา"}`, "ok");
-    setTimeout(retakeCam, 1800);
-  } catch(err) {
-    setScanStatus("❌ " + err.message, "err");
-    btns.forEach(b => b.disabled = false);
-  }
-}
+        /* ── Helpers ── */
+        const $ = id => document.getElementById(id);
+        const el = (q) => document.querySelector(q);
 
-function setScanStatus(msg, type) { setStatus(msg, type, true); }
+        /* Check if already locked out on page load */
+        (function checkExistingLockout() {
+            const lockout = localStorage.getItem(LOCKOUT_KEY);
+            if (lockout && Date.now() < parseInt(lockout)) {
+                triggerLockout();
+            }
+        })();
 
-// ═══════════════════════════════════════════════
-// LIVE CLOCK
-// ═══════════════════════════════════════════════
-function startClock() {
-  const MONTHS = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.",
-                  "ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-  const DAYS   = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัส","ศุกร์","เสาร์"];
-  function tick() {
-    const now = new Date();
-    $("live-clock").textContent =
-      String(now.getHours()).padStart(2,"0") + ":" +
-      String(now.getMinutes()).padStart(2,"0") + ":" +
-      String(now.getSeconds()).padStart(2,"0");
-    $("hdate").textContent =
-      "วัน" + DAYS[now.getDay()] + " " +
-      now.getDate() + " " +
-      MONTHS[now.getMonth()] + " " +
-      (now.getFullYear() + 543);
-  }
-  tick();
-  setInterval(tick, 1000);
-}
+        /* ── Toggle Password Visibility ── */
+        window.togglePwVisibility = function () {
+            const inp = $("input-password");
+            const btn = $("pw-toggle");
+            const show = inp.type === "password";
+            inp.type = show ? "text" : "password";
+            btn.textContent = show ? "🙈" : "👁";
+            btn.title = show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน";
+        };
 
-// ═══════════════════════════════════════════════
-// ONLINE STATUS
-// ═══════════════════════════════════════════════
-let _lastSync = null;
-function setOnline(isOnline) {
-  const dot = $("online-dot"), txt = $("online-txt");
-  if (isOnline) {
-    dot.style.background = "var(--green)";
-    dot.style.boxShadow  = "0 0 4px var(--green)";
-    const t = new Date();
-    _lastSync = String(t.getHours()).padStart(2,"0") + ":" +
-                String(t.getMinutes()).padStart(2,"0") + ":" +
-                String(t.getSeconds()).padStart(2,"0");
-    txt.textContent = "ซิงค์ " + _lastSync;
-  } else {
-    dot.style.background = "var(--red)";
-    dot.style.boxShadow  = "none";
-    txt.textContent = "ออฟไลน์";
-  }
-}
+        /* ── Update Attempt Dots ── */
+        function updateAttemptUI() {
+            const row = $("login-attempt-row");
+            row.classList.toggle("show", attempts > 0);
+            for (let i = 0; i < MAX_ATTEMPTS; i++) {
+                const dot = $("adot-" + i);
+                if (dot) dot.classList.toggle("used", i < attempts);
+            }
+            const remain = MAX_ATTEMPTS - attempts;
+            const remEl = $("attempt-remain");
+            if (remEl) remEl.textContent = remain > 0 ? `เหลืออีก ${remain} ครั้ง` : "หมดสิทธิ์";
+        }
 
-// ═══════════════════════════════════════════════
-// AUTO-REFRESH
-// ═══════════════════════════════════════════════
-let _refreshTimer = null, _refreshCountdown = 0;
+        /* ── Show Error Alert ── */
+        function showError(msg) {
+            const al = $("login-alert");
+            const txt = $("login-alert-msg");
+            if (txt) txt.textContent = msg;
+            if (al) al.classList.add("show");
+            ["input-fullname", "input-password"].forEach(id => {
+                const inp = $(id);
+                if (inp) {
+                    inp.classList.add("field-error");
+                    inp.addEventListener("input", () => inp.classList.remove("field-error"), { once: true });
+                }
+            });
+        }
 
-function startAutoRefresh() {
-  if (!CONFIG.AUTO_REFRESH) return;
-  clearInterval(_refreshTimer);
-  _refreshCountdown = CONFIG.AUTO_REFRESH;
-  _refreshTimer = setInterval(async () => {
-    if (!checkIdle()) {
-      _refreshCountdown = CONFIG.AUTO_REFRESH;
-      updateRefreshUI("active");
-      return;
-    }
-    _refreshCountdown--;
-    updateRefreshUI("idle");
-    if (_refreshCountdown <= 0) {
-      _refreshCountdown = CONFIG.AUTO_REFRESH;
-      if (S.selCol && S.tab === "list") await silentRefresh();
-    }
-  }, 1000);
-}
+        /* ── Trigger Lockout ── */
+        function triggerLockout() {
+            const dur = 5 * 60 * 1000; // 5 minutes lockout
+            localStorage.setItem(LOCKOUT_KEY, String(Date.now() + dur));
 
-function updateRefreshUI(mode) {
-  const dot = $("online-dot"), txt = $("online-txt");
-  if (mode === "active") {
-    dot.style.background = "var(--yel)";
-    dot.style.boxShadow  = "none";
-    dot.style.animation  = "";
-    txt.textContent = "กำลังใช้งาน";
-  } else {
-    dot.style.background = "var(--green)";
-    dot.style.boxShadow  = "0 0 5px var(--green)";
-    if (_refreshCountdown <= CONFIG.REFRESH_WARN) {
-      dot.style.animation = "pulse .6s infinite";
-      txt.textContent = "รีเฟรชใน " + _refreshCountdown + "s";
-    } else {
-      dot.style.animation = "";
-      if (_lastSync) txt.textContent = "ซิงค์ " + _lastSync;
-    }
-  }
-}
+            const btn = $("login-btn");
+            if (btn) btn.disabled = true;
 
-async function silentRefresh() {
-  try {
-    const data = await apiGet("getStudents", {col: S.selCol.col});
-    data.forEach(d => {
-      const st = S.students.find(s => s.row === d.row);
-      if (st) { st.status = d.status; st.absentCount = d.absentCount; }
-    });
-    renderStudents($("search-input").value);
-    setOnline(true);
-  } catch(e) {
-    setOnline(false);
-  }
-}
+            $("login-alert")?.classList.remove("show");
+            $("login-lockout-alert")?.classList.add("show");
+            $("login-form")?.querySelectorAll("input").forEach(inp => { inp.disabled = true; });
 
-// ═══════════════════════════════════════════════
-// ✅ FIX 4: INIT — โหลดเร็วขึ้น 2 เท่า
-//
-// เดิม: 3 API calls parallel → รอผล → 1 API call อีกรอบ = 2 round trips
-//       (getColumns + getStudents + getTodayColumn) → getStudents({col})
-//
-// ใหม่: ดึง cache แสดงทันที + 2 API calls parallel → รอผล → 2 API calls parallel = 2 round trips แต่สั้นกว่า
-//       round 1: getColumns + getTodayColumn (เล็ก เร็ว)
-//       round 2: getStudents + getStudents({col}) พร้อมกัน (ไม่รอกัน)
-// ═══════════════════════════════════════════════
-async function init() {
-  if (location.protocol === "file:") $("https-warn").style.display = "block";
-  startClock();
+            /* Auto-clear lockout after duration */
+            setTimeout(() => {
+                localStorage.removeItem(LOCKOUT_KEY);
+                window.location.reload();
+            }, dur);
+        }
 
-  if (CONFIG.SCRIPT_URL.includes("YOUR_SCRIPT_ID")) {
-    setStatus("⚠️ ยังไม่ได้ตั้งค่า SCRIPT_URL", "warn");
-    return;
-  }
+        /* ── Set Button Loading State ── */
+        function setLoading(isLoading) {
+            const btn = $("login-btn");
+            const inner = $("login-btn-inner");
+            const loader = $("login-btn-loading");
+            if (!btn) return;
+            btn.disabled = isLoading;
+            inner?.classList.toggle("hidden", isLoading);
+            loader?.classList.toggle("hidden", !isLoading);
+        }
 
-  // ── แสดง cache ก่อนเลย ไม่รอ API ──
-  const cachedStudents = CACHE.load(CACHE.KEY_STUDENTS);
-  const cachedCols     = CACHE.load(CACHE.KEY_COLS);
-  if (cachedStudents && cachedStudents.length) {
-    S.students = cachedStudents;
-    $("hcount").textContent = cachedStudents.length + " คน";
-    renderStudents("");
-    setStatus("กำลังอัปเดต...", "busy");
-  } else {
-    setStatus("กำลังโหลดข้อมูล...", "busy");
-  }
-  setOnline(false);
+        /* ── Main Login Handler ── */
+        window.handleLogin = async function (e) {
+            e.preventDefault();
+            if (isSubmitting) return;
 
-  try {
-    // ── Round trip 1: ดึง metadata (เล็ก เร็วมาก) ──
-    const [cols, todayCol] = await Promise.all([
-      apiGet("getColumns"),
-      apiGet("getTodayColumn")
-    ]);
-    S.columns = cols;
-    CACHE.save(CACHE.KEY_COLS, cols);
+            const lockout = localStorage.getItem(LOCKOUT_KEY);
+            if (lockout && Date.now() < parseInt(lockout)) { triggerLockout(); return; }
 
-    const targetCol = todayCol || (cols.length ? cols[cols.length - 1] : null);
+            const fullname = $("input-fullname")?.value.trim();
+            const password = $("input-password")?.value;
 
-    // ── Round trip 2: ดึงรายชื่อ + สถานะ พร้อมกันเลย ──
-    const [students, statusData] = await Promise.all([
-      apiGet("getStudents"),
-      targetCol ? apiGet("getStudents", {col: targetCol.col}) : Promise.resolve([])
-    ]);
+            /* Client-side validation */
+            if (!fullname || fullname.length < 2) {
+                showError("กรุณากรอกชื่อ-นามสกุลให้ครบถ้วน");
+                $("input-fullname")?.focus();
+                return;
+            }
+            if (!password || password.length < 1) {
+                showError("กรุณากรอกรหัสผ่าน");
+                $("input-password")?.focus();
+                return;
+            }
 
-    S.students = students;
-    CACHE.save(CACHE.KEY_STUDENTS, students);
-    $("hcount").textContent = students.length + " คน";
+            isSubmitting = true;
+            setLoading(true);
+            $("login-alert")?.classList.remove("show");
 
-    // รวมสถานะเข้ารายชื่อ
-    statusData.forEach(d => {
-      const s = S.students.find(x => x.row === d.row);
-      if (s) s.status = d.status;
-    });
+            try {
+                const ctrl = new AbortController();
+                const timeout = setTimeout(() => ctrl.abort(), 15000);
 
-    // เติม dropdown
-    let allCols = cols.slice();
-    if (todayCol && !allCols.find(c => c.col === todayCol.col)) allCols.push(todayCol);
-    allCols.sort((a, b) => a.col - b.col);
-    buildDateDropdown(allCols, todayCol);
+                const res = await fetch(WEB_APP_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({
+                        action: "adminLogin",
+                        username: fullname,
+                        password: password
+                    }),
+                    signal: ctrl.signal
+                });
 
-    if (targetCol) {
-      $("date-sel").value = targetCol.col;
-      S.selCol = targetCol;
-      if (todayCol && todayCol.created) {
-        setStatus("✨ สร้างคอลัมน์วันนี้ใหม่: " + todayCol.header, "ok");
-      } else {
-        setStatus("📅 " + (todayCol || targetCol).header + " — " + students.length + " คน", "ok");
-      }
-    } else {
-      setStatus("โหลดสำเร็จ — " + students.length + " คน", "ok");
+                clearTimeout(timeout);
+                if (!res.ok) throw new Error("HTTP " + res.status);
+
+                const json = await res.json();
+
+                if (json.success && json.data) {
+                    /* ── Success: store session & redirect ── */
+                    const { token, username, full_name, role, target_year } = json.data;
+                    if (!token) {
+      throw new Error("เซิร์ฟเวอร์ไม่ได้ส่ง Token กลับมา กรุณาติดต่อผู้ดูแลระบบ");
     }
 
-    renderStudents("");
-    setOnline(true);
-    startAutoRefresh();
-
-  } catch(err) {
-    setOnline(false);
-    if (cachedStudents && cachedStudents.length) {
-      setStatus("⚠️ ใช้ข้อมูลเก่า (ออฟไลน์)", "warn");
-    } else {
-      setStatus("โหลดไม่สำเร็จ: " + err.message, "err");
+                    localStorage.setItem("rotc_token", token);
+                    localStorage.setItem("rotc_username", username || fullname);
+                    localStorage.setItem("rotc_full_name", full_name || fullname);
+                    localStorage.setItem("rotc_role", role || "admin");
+                    if (role !== "superadmin" && !target_year) {
+      console.warn("⚠️ บัญชีนี้ไม่มี target_year กำหนดไว้ในระบบ — จะ default เป็นปี 1 โดยอัตโนมัติ ตรวจสอบคอลัมน์ E ในชีต Admin_rotc");
     }
-  }
+                    localStorage.setItem("rotc_year", String(target_year || "1"));
+                    localStorage.setItem("rotc_script_url", WEB_APP_URL);
+                    localStorage.removeItem(LOCKOUT_KEY);
 
-  // Pre-warm OCR ใน background
-  initOCR();
-}
+                    SecStore.clearBlock();
 
-window.addEventListener("online",  () => setOnline(true));
-window.addEventListener("offline", () => setOnline(false));
+                    typeof SoundFX !== "undefined" && SoundFX.success && SoundFX.success();
 
-init();
+                    /* Redirect: superadmin goes to year-select, admin goes direct */
+                    const target = `checkin.html`;
+                    window.location.href = target;
+
+                } else {
+                    throw new Error(json.error || "ข้อมูลเข้าสู่ระบบไม่ถูกต้อง");
+                }
+
+            } catch (err) {
+                typeof SoundFX !== "undefined" && SoundFX.error && SoundFX.error();
+
+                attempts++;
+                updateAttemptUI();
+
+                if (err.name === "AbortError") {
+                    showError("หมดเวลาการเชื่อมต่อ — กรุณาตรวจสอบสัญญาณอินเทอร์เน็ต");
+                } else if (attempts >= MAX_ATTEMPTS) {
+                    triggerLockout();
+                } else {
+                    showError(err.message);
+                }
+
+                /* Clear password on failure */
+                const pwInput = $("input-password");
+                if (pwInput) { pwInput.value = ""; pwInput.focus(); }
+
+            } finally {
+                isSubmitting = false;
+                setLoading(false);
+            }
+        };
+
+        /* ── Keyboard: Enter submits ── */
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && !isSubmitting) {
+                const form = $("login-form");
+                if (form && document.activeElement !== $("login-btn")) {
+                    form.requestSubmit?.() || form.dispatchEvent(new Event("submit", { cancelable: true }));
+                }
+            }
+        });
+
+    })();
 </script>
-</body>
-</html>
+
+<script src="auth.js"></script>
+
+<script src="stats-fetch.js"></script>
